@@ -189,17 +189,18 @@ private fun <T, R> List<T>.map(transform: (T) -> R): List<R> {
 }
 
 @OptIn(ExperimentalTime::class)
-public fun <T> Flow<T>.chunkedChannelBuffer(time: Duration): Flow<List<T>> = scopedFlow { downstream ->
+public fun <T> Flow<T>.chunkedChannelBuffer(time: Duration, size: Int): Flow<List<T>> = scopedFlow { downstream ->
     val upstream = produceIn(this)
     val acc = mutableListOf<T>()
     whileSelect {
         upstream.onReceiveOrClosed { valueOrClosed ->
             if (valueOrClosed.isClosed) {
-                downstream.emit(acc)
+                if (acc.isNotEmpty()) downstream.emit(acc)
                 false
             } else {
                 acc.add(valueOrClosed.value)
-                acc.addAll(upstream.drain())
+                acc.addAll(upstream.drain(maxElements = size - 1))
+                if (acc.size == size) downstream.emit(acc.drain())
                 true
             }
         }
@@ -265,17 +266,23 @@ public fun <T> Flow<T>.chunkedChannelBufferFast(time: Duration, size: Int): Flow
 
 ///////////////////////////////////////////////////////
 
-private suspend fun <T> ReceiveChannel<T>.awaitFirstAndDrain(): List<T> {
+private suspend fun <T> ReceiveChannel<T>.awaitFirstAndDrain(maxElements: Int = Int.MAX_VALUE): List<T> {
     val first = receiveOrClosed().takeIf { it.isClosed.not() }?.value ?: return emptyList()
-    return drain(mutableListOf(first))
+    return drain(mutableListOf(first), maxElements)
 }
 
-private tailrec fun <T> ReceiveChannel<T>.drain(acc: MutableList<T> = mutableListOf()): List<T> {
-    val item = poll()
-    return if (item == null) acc
+private tailrec fun <T> ReceiveChannel<T>.drain(
+    acc: MutableList<T> = mutableListOf(),
+    maxElements: Int = Int.MAX_VALUE
+): List<T> {
+    return if (acc.size == maxElements) acc
     else {
-        acc.add(item)
-        drain(acc)
+        val item = poll()
+        if (item == null) acc
+        else {
+            acc.add(item)
+            drain(acc, maxElements)
+        }
     }
 }
 
@@ -296,34 +303,32 @@ private enum class SemphoreSignal {
 @OptIn(ExperimentalTime::class)
 public fun <T> Flow<T>.universalChunked(interval: Duration, size: Int): Flow<List<T>> = scopedFlow { downstream ->
     val buffer = Channel<T>(size)
-    val emitSemaphore = Channel<Unit>()
-    val collectSemaphore = Channel<Unit>()
+    val emitNowSemaphore = Channel<Unit>()
+    val resumeCollectingSemaphore = Channel<Unit>()
 
     launch {
         collect { value ->
             val hasCapacity = buffer.offer(value)
             if (!hasCapacity) {
-                emitSemaphore.send(Unit)
-                collectSemaphore.receive()
+                emitNowSemaphore.send(Unit)
+                resumeCollectingSemaphore.receive()
                 buffer.send(value)
             }
         }
-        emitSemaphore.close()
+        emitNowSemaphore.close()
         buffer.close()
     }
 
     whileSelect {
-
-        emitSemaphore.onReceiveOrClosed { valueOrClosed ->
-            buffer.drain().takeIf { it.isNotEmpty() }?.let { downstream.emit(it) }
-            val shouldCollectNextChunk = valueOrClosed.isClosed.not()
-            if (shouldCollectNextChunk) collectSemaphore.send(Unit)
-            else collectSemaphore.close()
-            shouldCollectNextChunk
+        emitNowSemaphore.onReceiveOrClosed { valueOrClosed ->
+            val chunk = buffer.drain(maxElements = size)
+            val shouldResume = valueOrClosed.isClosed.not()
+            if (shouldResume) resumeCollectingSemaphore.send(Unit) else resumeCollectingSemaphore.close()
+            if (chunk.isNotEmpty()) downstream.emit(chunk)
+            shouldResume
         }
-
         onTimeout(interval) {
-            downstream.emit(buffer.awaitFirstAndDrain())
+            downstream.emit(buffer.awaitFirstAndDrain(maxElements = size))
             true
         }
     }

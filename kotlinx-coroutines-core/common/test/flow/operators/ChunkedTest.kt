@@ -16,7 +16,7 @@ class ChunkedTest : TestBase() {
     fun testEmptyFlowChunking() = runTest {
         val emptyFlow = emptyFlow<Int>()
         val result = measureTimedValue {
-            emptyFlow.chunkedChannelBufferFast(10.seconds, Int.MAX_VALUE).toList()
+            emptyFlow.universalChunked(10.seconds, Int.MAX_VALUE).toList()
         }
 
         assertTrue { result.value.isEmpty() }
@@ -30,7 +30,7 @@ class ChunkedTest : TestBase() {
         val fastFlow = flow { emit(1) }
 
         val result = measureTimedValue {
-            fastFlow.chunkedChannelBufferFast(10.seconds, Int.MAX_VALUE).toList()
+            fastFlow.universalChunked(10.seconds, Int.MAX_VALUE).toList()
         }
 
         assertTrue { result.value.size == 1 && result.value.first().contains(1) }
@@ -46,7 +46,7 @@ class ChunkedTest : TestBase() {
         }
 
         val result = measureTimedValue {
-            fastFlow.chunkedChannelBufferFast(10.seconds, Int.MAX_VALUE).toList()
+            fastFlow.universalChunked(10.seconds, Int.MAX_VALUE).toList()
         }
 
         assertTrue { result.value.size == 1 && result.value.first().size == 1000 }
@@ -183,7 +183,7 @@ class ChunkedTest : TestBase() {
     }
 
     private val testFlow = flow {
-        for(i in 1..10_000_000){
+        for(i in 1..100_000_000){
             emit(i)
         }
 
@@ -193,7 +193,8 @@ class ChunkedTest : TestBase() {
     fun benchChannelAsBuffer() = runTest {
         launch(Dispatchers.Default) {
             var emissionsCount = 0
-            testFlow.chunkedChannelBuffer(100.milliseconds)
+            testFlow.chunkedChannelBuffer(100.milliseconds, 10_000_000)
+                .onEach{ delay(10) }
                 .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
@@ -211,8 +212,9 @@ class ChunkedTest : TestBase() {
 //                for(i in 3..20) emit(i)
 //            }
 
-                testFlow.chunkedChannelBufferFast(100.milliseconds, 100_000)
-                .onEach { emissionsCount += it.size }
+                testFlow.chunkedChannelBufferFast(100.milliseconds, 10_000_000)
+                .onEach{ delay(10) }
+                    .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
         }
@@ -222,7 +224,8 @@ class ChunkedTest : TestBase() {
     fun benchUniversalChunked() = runTest {
         launch(Dispatchers.Default) {
             var emissionsCount = 0
-            testFlow.universalChunked(interval = 100.milliseconds, size = 100_000)
+            testFlow.universalChunked(interval = 100.milliseconds, size = 10_000_000)
+                .onEach{ delay(10) }
                 .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
@@ -233,7 +236,8 @@ class ChunkedTest : TestBase() {
     fun benchUniversalChunkedJustTimed() = runTest {
         launch(Dispatchers.Default) {
             var emissionsCount = 0
-            testFlow.universalChunkedJustTimed(100.milliseconds)
+            testFlow.universalChunked(100.milliseconds, size = Int.MAX_VALUE)
+                .onEach{ delay(10) }
                 .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
@@ -244,18 +248,35 @@ class ChunkedTest : TestBase() {
     fun benchUniversalChunkedNatural() = runTest {
         launch(Dispatchers.Default) {
             var emissionsCount = 0
-            testFlow.universalChunkedNaturalBuffering(100_000)
+            testFlow.universalChunked(0.seconds, Int.MAX_VALUE)
+                .onEach{ delay(10) }
                 .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
         }
     }
+
+    @Test
+    @Ignore
+    fun checkUniversalChunkedSizeBased() = runTest {
+        val tstFlow = flow { for (i in 1..1_000_000) emit(i) }
+            launch(Dispatchers.Default) {
+                var emissionsCount = 0
+                tstFlow.universalChunked(interval = Duration.INFINITE, size = 1000)
+                    .onEach{ delay(10) }
+                    .onEach { println("chunk of size ${it.size}") }
+                    .onEach { emissionsCount += it.size }
+                    .count()
+                    .let { println("chunks: $it, total emissions: $emissionsCount") }
+            }
+        }
 
     @Test
     fun benchUniversalChunkedSizeBased() = runTest {
         launch(Dispatchers.Default) {
             var emissionsCount = 0
-            testFlow.universalChunkedSizeBased(100_000)
+            testFlow.universalChunked(interval = Duration.INFINITE, size = 10_000_000)
+                .onEach{ delay(10) }
                 .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
@@ -263,10 +284,12 @@ class ChunkedTest : TestBase() {
     }
 
     @Test
+    @Ignore
     fun benchOldChunking() = runTest {
         launch(Dispatchers.Default) {
             var emissionsCount = 0
-            testFlow.chunked(100.milliseconds, maxSize = 100_000)
+            testFlow.chunked(100.milliseconds, maxSize = 10_000_000)
+                .onEach{ delay(10) }
                 .onEach { emissionsCount += it.size }
                 .count()
                 .let { println("chunks: $it, total emissions: $emissionsCount") }
