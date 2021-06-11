@@ -2,12 +2,12 @@
 
 [![official JetBrains project](https://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 [![GitHub license](https://img.shields.io/badge/license-Apache%20License%202.0-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Download](https://api.bintray.com/packages/kotlin/kotlinx/kotlinx.coroutines/images/download.svg?version=1.4.3) ](https://bintray.com/kotlin/kotlinx/kotlinx.coroutines/1.4.3)
-[![Kotlin](https://img.shields.io/badge/kotlin-1.4.30-blue.svg?logo=kotlin)](http://kotlinlang.org)
+[![Download](https://img.shields.io/maven-central/v/org.jetbrains.kotlinx/kotlinx-coroutines-core/1.5.0)](https://search.maven.org/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core/1.5.0/pom)
+[![Kotlin](https://img.shields.io/badge/kotlin-1.5.0-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![Slack channel](https://img.shields.io/badge/chat-slack-green.svg?logo=slack)](https://kotlinlang.slack.com/messages/coroutines/)
 
 Library support for Kotlin coroutines with [multiplatform](#multiplatform) support.
-This is a companion version for Kotlin `1.4.30` release.
+This is a companion version for the Kotlin `1.5.0` release.
 
 ```kotlin
 suspend fun main() = coroutineScope {
@@ -75,10 +75,6 @@ suspend fun main() = coroutineScope {
  
 ## Using in your projects
 
-The libraries are published to [kotlinx](https://bintray.com/kotlin/kotlinx/kotlinx.coroutines) bintray repository,
-linked to [JCenter](https://bintray.com/bintray/jcenter?filterByPkgName=kotlinx.coroutines) and 
-pushed to [Maven Central](https://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.jetbrains.kotlinx%20a%3Akotlinx-coroutines*).
-
 ### Maven
 
 Add dependencies (you can also add other modules that you need):
@@ -87,7 +83,7 @@ Add dependencies (you can also add other modules that you need):
 <dependency>
     <groupId>org.jetbrains.kotlinx</groupId>
     <artifactId>kotlinx-coroutines-core</artifactId>
-    <version>1.4.3</version>
+    <version>1.5.0</version>
 </dependency>
 ```
 
@@ -95,7 +91,7 @@ And make sure that you use the latest Kotlin version:
 
 ```xml
 <properties>
-    <kotlin.version>1.4.30</kotlin.version>
+    <kotlin.version>1.5.0</kotlin.version>
 </properties>
 ```
 
@@ -105,7 +101,7 @@ Add dependencies (you can also add other modules that you need):
 
 ```groovy
 dependencies {
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0'
 }
 ```
 
@@ -113,7 +109,7 @@ And make sure that you use the latest Kotlin version:
 
 ```groovy
 buildscript {
-    ext.kotlin_version = '1.4.30'
+    ext.kotlin_version = '1.5.0'
 }
 ```
 
@@ -131,7 +127,7 @@ Add dependencies (you can also add other modules that you need):
 
 ```groovy
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
 }
 ```
 
@@ -139,7 +135,7 @@ And make sure that you use the latest Kotlin version:
 
 ```groovy
 plugins {
-    kotlin("jvm") version "1.4.30"
+    kotlin("jvm") version "1.5.0"
 }
 ```
 
@@ -148,16 +144,16 @@ Make sure that you have `mavenCentral()` in the list of repositories.
 ### Android
 
 Add [`kotlinx-coroutines-android`](ui/kotlinx-coroutines-android)
-module as dependency when using `kotlinx.coroutines` on Android:
+module as a dependency when using `kotlinx.coroutines` on Android:
 
 ```groovy
-implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.3'
+implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.0'
 ```
 
-This gives you access to Android [Dispatchers.Main]
-coroutine dispatcher and also makes sure that in case of crashed coroutine with unhandled exception this
-exception is logged before crashing Android application, similarly to the way uncaught exceptions in
-threads are handled by Android runtime.
+This gives you access to the Android [Dispatchers.Main]
+coroutine dispatcher and also makes sure that in case of a crashed coroutine with an unhandled exception that
+this exception is logged before crashing the Android application, similarly to the way uncaught exceptions in
+threads are handled by the Android runtime.
 
 #### R8 and ProGuard
 
@@ -168,7 +164,7 @@ For more details see ["Optimization" section for Android](ui/kotlinx-coroutines-
 
 The `kotlinx-coroutines-core` artifact contains a resource file that is not required for the coroutines to operate
 normally and is only used by the debugger. To exclude it at no loss of functionality, add the following snippet to the
-`android` block in your gradle file for the application subproject:
+`android` block in your Gradle file for the application subproject:
 ```groovy
 packagingOptions {
   exclude "DebugProbesKt.bin"
@@ -180,23 +176,23 @@ packagingOptions {
 Core modules of `kotlinx.coroutines` are also available for 
 [Kotlin/JS](https://kotlinlang.org/docs/reference/js-overview.html) and [Kotlin/Native](https://kotlinlang.org/docs/reference/native-overview.html).
 
-In common code that should get compiled for different platforms, you can add dependency to `kotlinx-coroutines-core` right to the `commonMain` source set:
+In common code that should get compiled for different platforms, you can add a dependency to `kotlinx-coroutines-core` right to the `commonMain` source set:
 ```groovy
 commonMain {
     dependencies {
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
     }
 }
 ```
 
-No more additional dependencies is needed, platform-specific artifacts will be resolved automatically via Gradle metadata available since Gradle 5.3.
+No more additional dependencies are needed, platform-specific artifacts will be resolved automatically via Gradle metadata available since Gradle 5.3.
 
 Platform-specific dependencies are recommended to be used only for non-multiplatform projects that are compiled only for target platform.
 
 #### JS
 
 Kotlin/JS version of `kotlinx.coroutines` is published as 
-[`kotlinx-coroutines-core-js`](https://search.maven.org/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core-js/1.4.3/jar)
+[`kotlinx-coroutines-core-js`](https://search.maven.org/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core-js/1.5.0/jar)
 (follow the link to get the dependency declaration snippet) and as [`kotlinx-coroutines-core`](https://www.npmjs.com/package/kotlinx-coroutines-core) NPM package. 
 
 #### Native
@@ -207,11 +203,11 @@ the target Kotlin/Native platform. [List of currently supported targets](https:/
 
 
 Only single-threaded code (JS-style) on Kotlin/Native is supported in stable versions.
-Additionally, special `-native-mt` version is released on a regular basis, for the state of multi-threaded coroutines support
+Additionally, a special `-native-mt` version is released on a regular basis, for the state of multi-threaded coroutines support
 please follow the [corresponding issue](https://github.com/Kotlin/kotlinx.coroutines/issues/462) for the additional details.
 
 Since Kotlin/Native does not generally provide binary compatibility between versions, 
-you should use the same version of Kotlin/Native compiler as was used to build `kotlinx.coroutines`. 
+you should use the same version of the Kotlin/Native compiler as was used to build `kotlinx.coroutines`. 
 
 ## Building and Contributing
 

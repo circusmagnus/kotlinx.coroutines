@@ -1,8 +1,9 @@
 /*
  * Copyright 2016-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
  */
+
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.konan.target.HostManager
-import org.gradle.util.VersionNumber
 
 apply plugin: 'jdk-convention'
 apply from: rootProject.file("gradle/experimental.gradle")
@@ -53,16 +54,8 @@ buildscript {
     }
 
     repositories {
-        maven {url "https://kotlin.bintray.com/kotlinx"}
-        // Future replacement for kotlin-dev, with cache redirector
-        maven { url "https://cache-redirector.jetbrains.com/maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
-        maven {
-            url "https://kotlin.bintray.com/kotlin-dev"
-            credentials {
-                username = project.hasProperty('bintrayUser') ? project.property('bintrayUser') : System.getenv('BINTRAY_USER') ?: ""
-                password = project.hasProperty('bintrayApiKey') ? project.property('bintrayApiKey') : System.getenv('BINTRAY_API_KEY') ?: ""
-            }
-        }
+        // Leftover until we migrated to Dokka 1.4.30
+        maven { url "https://kotlin.bintray.com/kotlin-dev" }
         maven { url "https://jetbrains.bintray.com/kotlin-native-dependencies" }
         maven { url "https://plugins.gradle.org/m2/" }
         maven { url "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
@@ -82,9 +75,6 @@ buildscript {
 
     CacheRedirector.configureBuildScript(buildscript, rootProject)
 }
-
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-
 // todo:KLUDGE: Hierarchical project structures are not fully supported in IDEA, enable only for a regular built
 if (!Idea.active) {
     ext.set("kotlin.mpp.enableGranularSourceSetsMetadata", "true")
@@ -151,9 +141,6 @@ allprojects {
          */
         google()
         mavenCentral()
-        // Future replacement for kotlin-dev, with cache redirector
-        maven { url "https://cache-redirector.jetbrains.com/maven.pkg.jetbrains.space/kotlin/p/kotlin/dev" }
-        maven { url "https://kotlin.bintray.com/kotlinx" }
     }
 }
 
@@ -244,7 +231,7 @@ configure(subprojects.findAll { !unpublished.contains(it.name) }) {
     if (it.name != 'kotlinx-coroutines-bom') {
         apply from: rootProject.file('gradle/dokka.gradle')
     }
-    apply from: rootProject.file('gradle/publish-bintray.gradle')
+    apply from: rootProject.file('gradle/publish.gradle')
 }
 
 configure(subprojects.findAll { !unpublished.contains(it.name) }) {
@@ -298,4 +285,35 @@ if (jvm_ir_enabled) {
             enabled = enabled && jvm_ir_api_check_enabled
         }
     }
+}
+
+// Opt-in for build scan in order to troubleshoot Gradle on TC
+if (hasProperty('buildScan')) {
+    buildScan {
+        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+        termsOfServiceAgree = 'yes'
+    }
+}
+
+/*
+ * kotlinx-coroutines-core dependency leaks into test runtime classpath via kotlin-compiler-embeddable
+ * and conflicts with our own test/runtime incompatibilities (e.g. when class is moved from a main to test),
+ * so we do substitution here
+ */
+allprojects { subProject ->
+    subProject
+            .configurations
+            .matching {
+                // Excluding substituted project itself because of circular dependencies, but still do it
+                // for "*Test*" configurations
+                subProject.name != "kotlinx-coroutines-core" || it.name.contains("Test")
+            }
+            .configureEach { conf ->
+                conf.resolutionStrategy.dependencySubstitution {
+                    substitute(module("org.jetbrains.kotlinx:kotlinx-coroutines-core"))
+                            .using(project(":kotlinx-coroutines-core"))
+                            .because("Because Kotlin compiler embeddable leaks coroutines into the runtime classpath, " +
+                                    "triggering all sort of incompatible class changes errors")
+                }
+            }
 }
